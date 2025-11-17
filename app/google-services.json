@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "243446217110",
+    "project_id": "swiftai-6167c",
+    "storage_bucket": "swiftai-6167c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:243446217110:android:a04b3c8423b3276e8b05b7",
+        "android_client_info": {
+          "package_name": "com.swiftai.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "243446217110-sfkdcfhbii1hj6st3pebda58qv6c0rop.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.swiftai.app",
+            "certificate_hash": "c58bd5802cdaf678ec4d0fa70802f8c777d1aa10"
+          }
+        },
+        {
+          "client_id": "243446217110-2qbano4qbs1p0njjb6p92j687378tmm0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmBU8xJw3l0rVX8Z-agAmSd390Dc80hmc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "243446217110-2qbano4qbs1p0njjb6p92j687378tmm0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

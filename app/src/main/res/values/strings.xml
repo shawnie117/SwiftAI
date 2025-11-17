@@ -1,3 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SwiftAI</string>
+    <string name="welcome_message">Welcome to SwiftAI</string>
+    <string name="sign_in">Sign In</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="new_chat">New Chat</string>
+    <string name="settings">Settings</string>
+    <string name="type_message">Type a message...</string>
+
+    <!-- IMPORTANT: Replace this with your actual Web Client ID from Firebase Console -->
+    <string name="default_web_client_id">243446217110-2qbano4qbs1p0njjb6p92j687378tmm0.apps.googleusercontent.com</string>
 </resources>
