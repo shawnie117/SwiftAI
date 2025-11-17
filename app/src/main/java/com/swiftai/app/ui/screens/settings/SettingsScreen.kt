@@ -164,14 +164,13 @@ fun SettingsScreen(
             )
 
             SettingsItem(
-                icon = Icons.Default.Person,
-                title = "Edit Profile",
-                subtitle = "Change your name and avatar",
-                onClick = {
-                    editedName = uiState.displayName
-                    showEditNameDialog = true
-                }
+                icon = Icons.Default.Star,
+                title = "Upgrade to Premium",
+                subtitle = "Unlock all AI models",
+                onClick = { navController.navigate(Screen.Subscription.route) },
+                badge = "PRO"
             )
+
 
             SettingsItem(
                 icon = Icons.Default.Lock,

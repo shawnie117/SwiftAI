@@ -140,7 +140,7 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // AI Tools Section
+// AI Tools Section
                     Text(
                         text = "AI Tools",
                         style = MaterialTheme.typography.titleSmall,
@@ -152,30 +152,46 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         DrawerMenuItem(
+                            icon = Icons.Default.AutoAwesome,
+                            title = "Browse All Tools",
+                            onClick = {
+                                navController.navigate(Screen.AITools.route)
+                                scope.launch { drawerState.close() }
+                            }
+                        )
+                        DrawerMenuItem(
                             icon = Icons.Default.Create,
                             title = "Text Generation",
-                            onClick = { /* TODO */ }
+                            onClick = {
+                                navController.navigate(Screen.AIToolDetail.createRoute("text_generation"))
+                                scope.launch { drawerState.close() }
+                            }
                         )
                         DrawerMenuItem(
                             icon = Icons.Default.Image,
                             title = "Image Generation",
-                            onClick = { /* TODO */ }
+                            onClick = {
+                                navController.navigate(Screen.AIToolDetail.createRoute("image_generation"))
+                                scope.launch { drawerState.close() }
+                            }
                         )
                         DrawerMenuItem(
                             icon = Icons.Default.Translate,
                             title = "Translation",
-                            onClick = { /* TODO */ }
+                            onClick = {
+                                navController.navigate(Screen.AIToolDetail.createRoute("translation"))
+                                scope.launch { drawerState.close() }
+                            }
                         )
                         DrawerMenuItem(
                             icon = Icons.Default.Code,
                             title = "Code Assistant",
-                            onClick = { /* TODO */ }
+                            onClick = {
+                                navController.navigate(Screen.AIToolDetail.createRoute("code_assistant"))
+                                scope.launch { drawerState.close() }
+                            }
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider(color = TextSecondary.copy(alpha = 0.2f))
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     // User Profile Section
                     Row(

@@ -7,13 +7,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,17 +36,20 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
     var showModelSelector by remember { mutableStateOf(false) }
 
     LaunchedEffect(chatId) {
         viewModel.loadChat(chatId)
     }
 
-    // Auto-scroll to bottom when new message arrives
-    LaunchedEffect(uiState.messages.size) {
+    // Auto-scroll to bottom when new message arrives or keyboard opens
+    LaunchedEffect(uiState.messages.size, uiState.isSending) {
         if (uiState.messages.isNotEmpty()) {
             coroutineScope.launch {
-                listState.animateScrollToItem(uiState.messages.size)
+                listState.animateScrollToItem(
+                    index = maxOf(0, uiState.messages.size - 1)
+                )
             }
         }
     }
@@ -70,7 +74,7 @@ fun ChatScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -78,7 +82,10 @@ fun ChatScreen(
                 actions = {
                     // Model Selector Button
                     TextButton(
-                        onClick = { showModelSelector = true },
+                        onClick = {
+                            keyboardController?.hide()
+                            showModelSelector = true
+                        },
                         colors = ButtonDefaults.textButtonColors(
                             containerColor = Purple.copy(alpha = 0.1f)
                         ),
@@ -103,14 +110,16 @@ fun ChatScreen(
                 )
             )
         },
-        containerColor = BackgroundDark
+        containerColor = BackgroundDark,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)  // Important: Remove default insets
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .imePadding()  // This handles keyboard padding
         ) {
-            // Messages List
+            // Messages List - Takes remaining space
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -146,45 +155,60 @@ fun ChatScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 8.dp)
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        reverseLayout = false
                     ) {
-                        items(uiState.messages) { message ->
+                        items(
+                            items = uiState.messages,
+                            key = { it.id }
+                        ) { message ->
                             MessageBubble(message = message)
                         }
 
                         if (uiState.isSending) {
-                            item {
+                            item(key = "typing") {
                                 TypingIndicator()
                             }
                         }
 
-                        // Extra space at bottom to ensure last message is visible
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
+                        // Extra space at bottom for better UX
+                        item(key = "spacer") {
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
             }
 
-            // Input Bar - Fixed at bottom
+            // Input Bar - Always visible at bottom, above keyboard
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = SurfaceDark,
-                shadowElevation = 8.dp
+                shadowElevation = 8.dp,
+                tonalElevation = 8.dp
             ) {
-                InputBar(
-                    value = uiState.inputMessage,
-                    onValueChange = viewModel::onMessageChange,
-                    onSend = {
-                        viewModel.sendMessage()
-                        // Scroll to bottom after sending
-                        coroutineScope.launch {
-                            listState.animateScrollToItem(uiState.messages.size + 1)
-                        }
-                    },
-                    enabled = !uiState.isSending,
-                    placeholder = "Type a message..."
-                )
+                Column {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = TextSecondary.copy(alpha = 0.1f)
+                    )
+                    InputBar(
+                        value = uiState.inputMessage,
+                        onValueChange = viewModel::onMessageChange,
+                        onSend = {
+                            viewModel.sendMessage()
+                            // Scroll to bottom after sending
+                            coroutineScope.launch {
+                                kotlinx.coroutines.delay(100)
+                                if (uiState.messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(uiState.messages.size)
+                                }
+                            }
+                        },
+                        enabled = !uiState.isSending,
+                        placeholder = "Type a message...",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }

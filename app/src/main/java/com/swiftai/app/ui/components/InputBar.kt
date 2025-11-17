@@ -27,14 +27,16 @@ fun InputBar(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .defaultMinSize(minHeight = 48.dp),
             placeholder = {
                 Text(
                     text = placeholder,
@@ -55,10 +57,14 @@ fun InputBar(
         )
 
         IconButton(
-            onClick = onSend,
+            onClick = {
+                if (value.isNotBlank()) {
+                    onSend()
+                }
+            },
             enabled = enabled && value.isNotBlank(),
             modifier = Modifier
-                .size(56.dp)
+                .size(48.dp)
                 .background(
                     color = if (enabled && value.isNotBlank()) Purple else SurfaceVariantDark,
                     shape = RoundedCornerShape(16.dp)
@@ -67,7 +73,7 @@ fun InputBar(
             Icon(
                 imageVector = Icons.Default.Send,
                 contentDescription = "Send",
-                tint = Color.White
+                tint = if (enabled && value.isNotBlank()) Color.White else Color.White.copy(alpha = 0.5f)
             )
         }
     }

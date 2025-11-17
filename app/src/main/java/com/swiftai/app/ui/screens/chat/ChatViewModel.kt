@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.swiftai.app.data.repository.ChatRepository
+import com.swiftai.app.domain.model.AIModels
 import com.swiftai.app.domain.model.Chat
 import com.swiftai.app.domain.model.Message
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -83,11 +84,12 @@ class ChatViewModel @Inject constructor(
     fun onModelChange(model: String) {
         _uiState.value = _uiState.value.copy(selectedModel = model)
 
-        // Update chat model
+        // Update chat model in Firestore
         currentChat?.let { chat ->
             viewModelScope.launch {
                 try {
                     chatRepository.updateChat(chat.copy(model = model))
+                    Log.d("ChatViewModel", "Model changed to: $model")
                 } catch (e: Exception) {
                     Log.e("ChatViewModel", "Error updating model: ${e.message}")
                 }
@@ -126,18 +128,16 @@ class ChatViewModel @Inject constructor(
                     }
                 }
 
-                // Get AI response
-                val maxLength = when (_uiState.value.selectedModel) {
-                    "swiftai-mini" -> 100
-                    "swiftai-standard" -> 200
-                    "swiftai-pro" -> 500
-                    "swiftai-max" -> 1000
-                    else -> 100
-                }
+                // Get maxLength based on selected model (FIXED)
+                val selectedModelData = AIModels.getModelById(_uiState.value.selectedModel)
+                val maxLength = selectedModelData?.maxLength ?: 100
 
+                Log.d("ChatViewModel", "Sending with model: ${_uiState.value.selectedModel}, maxLength: $maxLength")
+
+                // Call API with correct model
                 val aiResponseResult = chatRepository.getAIResponse(
                     prompt = messageText,
-                    model = _uiState.value.selectedModel,
+                    model = _uiState.value.selectedModel, // Use selected model
                     maxLength = maxLength
                 )
 

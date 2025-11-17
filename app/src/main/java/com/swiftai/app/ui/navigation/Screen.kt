@@ -9,4 +9,9 @@ sealed class Screen(val route: String) {
         fun createRoute(chatId: String) = "chat/$chatId"
     }
     object Settings : Screen("settings")
+    object AITools : Screen("ai_tools")
+    object AIToolDetail : Screen("ai_tool/{toolId}") {
+        fun createRoute(toolId: String) = "ai_tool/$toolId"
+    }
+    object Subscription : Screen("subscription")
 }
