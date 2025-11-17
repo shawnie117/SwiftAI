@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -270,13 +269,13 @@ fun SignupScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
                 Text(
                     text = "OR",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
-                Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
             }
 
             Spacer(modifier = Modifier.height(24.dp))

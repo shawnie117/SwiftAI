@@ -1,13 +1,11 @@
 package com.swiftai.app.di
 
-import android.content.Context
-import com.swiftai.app.data.remote.api.SwiftAIApi
-import com.swiftai.app.data.remote.firebase.FirebaseAuthService
-import com.swiftai.app.data.remote.firebase.FirestoreService
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.swiftai.app.data.remote.api.GeminiApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -17,21 +15,19 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseAuthService(
-        @ApplicationContext context: Context
-    ): FirebaseAuthService {
-        return FirebaseAuthService(context)
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
     }
 
     @Provides
     @Singleton
-    fun provideFirestoreService(): FirestoreService {
-        return FirestoreService()
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
     }
 
     @Provides
     @Singleton
-    fun provideSwiftAIApi(): SwiftAIApi {
-        return SwiftAIApi()
+    fun provideGeminiApi(): GeminiApi {
+        return GeminiApi()
     }
 }

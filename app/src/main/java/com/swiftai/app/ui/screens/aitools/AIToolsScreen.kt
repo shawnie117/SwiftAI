@@ -1,65 +1,67 @@
 package com.swiftai.app.ui.screens.aitools
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.swiftai.app.domain.model.AITool
-import com.swiftai.app.domain.model.AITools
 import com.swiftai.app.ui.navigation.Screen
 import com.swiftai.app.ui.theme.*
+
+data class AITool(
+    val id: String,
+    val name: String,
+    val description: String,
+    val icon: String,
+    val category: String,
+    val isPinned: Boolean = false
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIToolsScreen(
     navController: NavController,
-    userTier: String = "free" // "free", "pro", or "max"
+    viewModel: AIToolsViewModel = hiltViewModel()
 ) {
-    var selectedCategory by remember { mutableStateOf("All") }
+    val uiState by viewModel.uiState.collectAsState()
 
-    val categories = listOf("All", "Text", "Language", "Development", "Creative", "Analysis", "Voice", "Vision", "Audio")
-
-    val filteredTools = if (selectedCategory == "All") {
-        AITools.tools
-    } else {
-        AITools.getToolsByCategory(selectedCategory)
-    }
+    val tools = listOf(
+        AITool("image_gen", "Image Generator", "Create stunning AI images", "🎨", "creative"),
+        AITool("code_helper", "Code Assistant", "AI-powered coding help", "💻", "development"),
+        AITool("writer", "AI Writer", "Generate quality content", "✍️", "creative"),
+        AITool("translator", "Translator", "50+ languages support", "🌐", "utility"),
+        AITool("summarizer", "Summarizer", "Condense long content", "📝", "utility"),
+        AITool("data_analyst", "Data Analyst", "Analyze your data", "📊", "business"),
+        AITool("voice_gen", "Voice Generator", "Text to speech AI", "🎤", "creative"),
+        AITool("video_editor", "Video Editor", "AI video enhancement", "🎥", "creative")
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "AI Tools",
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Explore AI capabilities",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
+                    Text(
+                        text = "AI Tools",
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -69,109 +71,26 @@ fun AIToolsScreen(
         },
         containerColor = BackgroundDark
     ) { paddingValues ->
-        Column(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Category Filter
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Header with user tier badge
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.Transparent
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(GradientStart, GradientMiddle, GradientEnd)
-                                    ),
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                .padding(20.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = when(userTier) {
-                                            "max" -> "👑 SwiftAI Max"
-                                            "pro" -> "🚀 SwiftAI Pro"
-                                            else -> "⚡ Free Plan"
-                                        },
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "${filteredTools.size} tools available",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.White.copy(alpha = 0.8f)
-                                    )
-                                }
-
-                                if (userTier == "free") {
-                                    Button(
-                                        onClick = { /* Navigate to upgrade */ },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color.White.copy(alpha = 0.2f)
-                                        )
-                                    ) {
-                                        Text("Upgrade", color = Color.White)
-                                    }
-                                }
-                            }
-                        }
+            items(tools) { tool ->
+                AIToolCard(
+                    tool = tool,
+                    isPinned = uiState.pinnedTools.contains(tool.id),
+                    onClick = {
+                        navController.navigate(Screen.AIToolDetail.createRoute(tool.id))
+                    },
+                    onPinToggle = {
+                        viewModel.togglePin(tool.id)
                     }
-                }
-
-                // Category chips
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        categories.take(4).forEach { category ->
-                            FilterChip(
-                                selected = selectedCategory == category,
-                                onClick = { selectedCategory = category },
-                                label = { Text(category) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Purple,
-                                    selectedLabelColor = Color.White
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // Tools list
-                items(filteredTools) { tool ->
-                    AIToolCard(
-                        tool = tool,
-                        userTier = userTier,
-                        onClick = {
-                            if (canAccessTool(tool, userTier)) {
-                                navController.navigate(Screen.AIToolDetail.createRoute(tool.id))
-                            }
-                        }
-                    )
-                }
+                )
             }
         }
     }
@@ -180,120 +99,73 @@ fun AIToolsScreen(
 @Composable
 fun AIToolCard(
     tool: AITool,
-    userTier: String,
-    onClick: () -> Unit
+    isPinned: Boolean,
+    onClick: () -> Unit,
+    onPinToggle: () -> Unit
 ) {
-    val canAccess = canAccessTool(tool, userTier)
-
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = SurfaceVariantDark
-        ),
-        enabled = canAccess
+        )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Icon
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = when(tool.tier) {
-                                "max" -> Amber.copy(alpha = 0.2f)
-                                "pro" -> Purple.copy(alpha = 0.2f)
-                                else -> Cyan.copy(alpha = 0.2f)
-                            },
-                            shape = RoundedCornerShape(12.dp)
-                        ),
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Purple.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = tool.icon,
-                        contentDescription = null,
-                        tint = when(tool.tier) {
-                            "max" -> Amber
-                            "pro" -> Purple
-                            else -> Cyan
-                        },
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                // Info
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = tool.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (canAccess) TextPrimary else TextSecondary
-                        )
-
-                        if (tool.isPremium) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = when(tool.tier) {
-                                    "max" -> Amber
-                                    "pro" -> Purple.copy(alpha = 0.8f)
-                                    else -> Purple.copy(alpha = 0.5f)
-                                }
-                            ) {
-                                Text(
-                                    text = tool.tier.uppercase(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (tool.tier == "max") Color.Black else Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
-                        text = tool.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        text = tool.icon,
+                        style = MaterialTheme.typography.headlineMedium
                     )
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = tool.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = tool.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    maxLines = 2
+                )
             }
 
-            // Lock icon if not accessible
-            if (!canAccess) {
+            // Pin button
+            IconButton(
+                onClick = onPinToggle,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
                 Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = "Locked",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
+                    imageVector = if (isPinned) Icons.Default.PushPin else Icons.Default.PushPin,
+                    contentDescription = "Pin",
+                    tint = if (isPinned) Amber else TextSecondary.copy(alpha = 0.5f)
                 )
             }
         }
-    }
-}
-
-fun canAccessTool(tool: AITool, userTier: String): Boolean {
-    return when (userTier) {
-        "max" -> true // Max users can access everything
-        "pro" -> tool.tier != "max" // Pro users can't access Max tools
-        else -> !tool.isPremium // Free users can only access free tools
     }
 }

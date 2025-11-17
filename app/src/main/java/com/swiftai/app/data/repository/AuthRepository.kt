@@ -30,12 +30,11 @@ class AuthRepository @Inject constructor(
             if (result.isSuccess) {
                 val firebaseUser = result.getOrThrow()
                 val user = User(
-                    id = firebaseUser.uid,
+                    uid = firebaseUser.uid,
                     email = email,
                     displayName = displayName,
-                    photoURL = "",
-                    createdAt = System.currentTimeMillis(),
-                    subscriptionType = "free"
+                    subscriptionTier = "free",
+                    createdAt = System.currentTimeMillis()
                 )
 
                 firestoreService.createUser(user)
@@ -61,7 +60,16 @@ class AuthRepository @Inject constructor(
                     if (user != null) {
                         Result.success(user)
                     } else {
-                        Result.failure(Exception("User not found"))
+                        // User document doesn't exist, create it
+                        val newUser = User(
+                            uid = firebaseUser.uid,
+                            email = firebaseUser.email ?: email,
+                            displayName = firebaseUser.displayName ?: "",
+                            subscriptionTier = "free",
+                            createdAt = System.currentTimeMillis()
+                        )
+                        firestoreService.createUser(newUser)
+                        Result.success(newUser)
                     }
                 } else {
                     Result.failure(userResult.exceptionOrNull() ?: Exception("Failed to get user"))
@@ -90,12 +98,11 @@ class AuthRepository @Inject constructor(
                 } else {
                     // New user - create profile
                     val newUser = User(
-                        id = firebaseUser.uid,
+                        uid = firebaseUser.uid,
                         email = firebaseUser.email ?: "",
                         displayName = firebaseUser.displayName ?: "",
-                        photoURL = firebaseUser.photoUrl?.toString() ?: "",
-                        createdAt = System.currentTimeMillis(),
-                        subscriptionType = "free"
+                        subscriptionTier = "free",
+                        createdAt = System.currentTimeMillis()
                     )
                     firestoreService.createUser(newUser)
                     newUser

@@ -45,15 +45,15 @@ fun NavGraph() {
             arguments = listOf(navArgument("chatId") { type = NavType.StringType })
         ) { backStackEntry ->
             val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
-            ChatScreen(navController, chatId)
+            ChatScreen(chatId = chatId, navController = navController)
         }
 
         composable(Screen.Settings.route) {
-            SettingsScreen(navController)
+            SettingsScreen(navController = navController)
         }
 
         composable(Screen.AITools.route) {
-            AIToolsScreen(navController, userTier = "free")
+            AIToolsScreen(navController = navController)
         }
 
         composable(
@@ -61,11 +61,11 @@ fun NavGraph() {
             arguments = listOf(navArgument("toolId") { type = NavType.StringType })
         ) { backStackEntry ->
             val toolId = backStackEntry.arguments?.getString("toolId") ?: ""
-            AIToolDetailScreen(navController, toolId)
+            AIToolDetailScreen(navController = navController, toolId = toolId)
         }
 
         composable(Screen.Subscription.route) {
-            SubscriptionScreen(navController, currentPlan = "free")
+            SubscriptionScreen(navController = navController)
         }
     }
 }

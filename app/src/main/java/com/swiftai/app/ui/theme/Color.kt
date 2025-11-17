@@ -17,6 +17,9 @@ val Amber = Color(0xFFF59E0B)
 val AmberLight = Color(0xFFFBBF24)
 val AmberDark = Color(0xFFD97706)
 
+val Red = Color(0xFFEF4444)
+val Green = Color(0xFF10B981)
+
 // Background - Dark Theme
 val BackgroundDark = Color(0xFF0A0A0F)
 val SurfaceDark = Color(0xFF1A1A24)

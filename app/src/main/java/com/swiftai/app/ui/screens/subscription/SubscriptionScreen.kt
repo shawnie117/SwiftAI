@@ -1,11 +1,13 @@
 package com.swiftai.app.ui.screens.subscription
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.swiftai.app.ui.theme.*
 
@@ -23,21 +27,24 @@ import com.swiftai.app.ui.theme.*
 @Composable
 fun SubscriptionScreen(
     navController: NavController,
-    currentPlan: String = "free" // "free", "pro", "max"
+    viewModel: SubscriptionViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Upgrade Plan",
+                        text = "Choose Your Plan",
                         fontWeight = FontWeight.Bold
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -84,14 +91,14 @@ fun SubscriptionScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Choose Your Plan",
+                            text = "Unlock AI Tools",
                             style = MaterialTheme.typography.headlineMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Unlock the full power of SwiftAI",
+                            text = "Image generation, code help & more",
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.White.copy(alpha = 0.9f),
                             textAlign = TextAlign.Center
@@ -105,17 +112,14 @@ fun SubscriptionScreen(
                 title = "Free",
                 price = "₹0",
                 period = "forever",
-                icon = "⚡",
-                isCurrentPlan = currentPlan == "free",
+                icon = "💬",
+                isCurrentPlan = uiState.currentTier == "free",
                 isPopular = false,
                 features = listOf(
-                    "SwiftAI Mini & Standard models",
-                    "Basic text generation",
-                    "Translation",
-                    "Grammar checking",
-                    "Text summarization",
-                    "5 messages per day",
-                    "Community support"
+                    "Chat with SwiftAI (Gemini)",
+                    "Unlimited conversations",
+                    "Fast responses",
+                    "Basic support"
                 ),
                 onSubscribe = { /* Already free */ }
             )
@@ -126,21 +130,22 @@ fun SubscriptionScreen(
                 price = "₹299",
                 period = "/month",
                 icon = "🚀",
-                isCurrentPlan = currentPlan == "pro",
+                isCurrentPlan = uiState.currentTier == "pro",
                 isPopular = true,
                 features = listOf(
                     "Everything in Free",
-                    "SwiftAI Pro model",
-                    "Advanced text generation",
-                    "Code assistant & review",
-                    "Image generation prompts",
-                    "Creative writing tools",
-                    "Document analysis",
-                    "Data analysis",
-                    "100 messages per day",
-                    "Priority support"
+                    "🎨 AI Image Generation",
+                    "💻 Code Assistant & Review",
+                    "📝 Advanced Writing Tools",
+                    "🌐 Translation (50+ languages)",
+                    "📊 Document Analysis",
+                    "Priority support",
+                    "Pin favorite tools"
                 ),
-                onSubscribe = { /* TODO: Handle subscription */ }
+                onSubscribe = {
+                    viewModel.subscribeTo("pro")
+                    Toast.makeText(context, "Redirecting to payment...", Toast.LENGTH_SHORT).show()
+                }
             )
 
             // Max Plan
@@ -149,26 +154,56 @@ fun SubscriptionScreen(
                 price = "₹599",
                 period = "/month",
                 icon = "👑",
-                isCurrentPlan = currentPlan == "max",
+                isCurrentPlan = uiState.currentTier == "max",
                 isPopular = false,
                 features = listOf(
                     "Everything in Pro",
-                    "SwiftAI Max model",
-                    "Text-to-speech",
-                    "Speech-to-text",
-                    "Vision tools",
-                    "Audio enhancement",
-                    "Video analysis",
-                    "Advanced image generation",
-                    "Unlimited messages",
-                    "24/7 Premium support",
+                    "🎯 All Premium AI Models",
+                    "🎥 Video Analysis",
+                    "🎵 Audio Enhancement",
+                    "🔬 Advanced Data Analysis",
+                    "⚡ Fastest Response Times",
+                    "24/7 Premium Support",
                     "Early access to new features",
                     "API access"
                 ),
-                onSubscribe = { /* TODO: Handle subscription */ }
+                onSubscribe = {
+                    viewModel.subscribeTo("max")
+                    Toast.makeText(context, "Redirecting to payment...", Toast.LENGTH_SHORT).show()
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Manual upgrade info (for testing)
+            if (uiState.currentTier == "free") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = SurfaceVariantDark
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "💡 For Testing",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Amber
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Contact admin to manually upgrade your account from Firestore database.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
         }
     }
 }

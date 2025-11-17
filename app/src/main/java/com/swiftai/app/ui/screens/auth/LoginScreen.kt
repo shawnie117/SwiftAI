@@ -232,13 +232,13 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
                 Text(
                     text = "OR",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
-                Divider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = TextSecondary.copy(alpha = 0.3f))
             }
 
             Spacer(modifier = Modifier.height(24.dp))

@@ -10,8 +10,4 @@ class SendMessageUseCase @Inject constructor(
     suspend operator fun invoke(message: Message): Result<String> {
         return chatRepository.sendMessage(message)
     }
-
-    suspend fun getAIResponse(prompt: String, model: String, maxLength: Int): Result<String> {
-        return chatRepository.getAIResponse(prompt, model, maxLength)
-    }
 }

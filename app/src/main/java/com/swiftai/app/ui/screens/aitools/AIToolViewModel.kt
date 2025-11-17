@@ -1,10 +1,10 @@
 package com.swiftai.app.ui.screens.aitools
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.swiftai.app.data.remote.api.SwiftAIApi
-import com.swiftai.app.domain.model.AIModels
+import com.google.firebase.auth.FirebaseAuth
+import com.swiftai.app.data.repository.ChatRepository
+import com.swiftai.app.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,8 +12,52 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
+class AIToolsViewModel @Inject constructor(
+    private val userRepository: UserRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(AIToolsUiState())
+    val uiState = _uiState.asStateFlow()
+
+    private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    init {
+        loadPinnedTools()
+    }
+
+    private fun loadPinnedTools() {
+        viewModelScope.launch {
+            userRepository.getUserFlow(currentUserId).collect { user ->
+                _uiState.value = _uiState.value.copy(
+                    pinnedTools = user?.pinnedTools ?: emptyList()
+                )
+            }
+        }
+    }
+
+    fun togglePin(toolId: String) {
+        viewModelScope.launch {
+            val currentPinned = _uiState.value.pinnedTools.toMutableList()
+
+            if (currentPinned.contains(toolId)) {
+                currentPinned.remove(toolId)
+            } else {
+                currentPinned.add(toolId)
+            }
+
+            userRepository.updatePinnedTools(currentUserId, currentPinned)
+        }
+    }
+}
+
+data class AIToolsUiState(
+    val pinnedTools: List<String> = emptyList()
+)
+
+// ViewModel for individual AI Tool detail screen
+@HiltViewModel
 class AIToolViewModel @Inject constructor(
-    private val api: SwiftAIApi
+    private val chatRepository: ChatRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AIToolUiState())
@@ -21,39 +65,30 @@ class AIToolViewModel @Inject constructor(
 
     fun processInput(toolId: String, input: String, modelId: String) {
         viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(isLoading = true, result = "", error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                result = ""
+            )
 
-                // Create tool-specific prompt
+            try {
+                // Create a prompt based on the tool type
                 val prompt = createPromptForTool(toolId, input)
 
-                // Get model details
-                val modelData = AIModels.getModelById(modelId)
-                val maxLength = modelData?.maxLength ?: 100
+                // TODO: Implement actual API call to process the input
+                // For now, simulate a response
+                kotlinx.coroutines.delay(1500)
 
-                Log.d("AIToolViewModel", "Processing with model: $modelId, maxLength: $maxLength")
-                Log.d("AIToolViewModel", "Prompt: $prompt")
+                val result = "This is a simulated result for $toolId.\n\nInput: $input\n\nModel: $modelId"
 
-                // Call API with correct model
-                val result = api.sendMessage(prompt, modelId, maxLength)
-
-                if (result.isSuccess) {
-                    val response = result.getOrNull()?.response ?: "No response"
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        result = response
-                    )
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Failed: ${result.exceptionOrNull()?.message}"
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("AIToolViewModel", "Error: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Error: ${e.message}"
+                    result = result
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "An error occurred"
                 )
             }
         }
@@ -61,66 +96,27 @@ class AIToolViewModel @Inject constructor(
 
     private fun createPromptForTool(toolId: String, input: String): String {
         return when (toolId) {
-            "text_generation" -> {
-                "Generate creative and engaging text based on this prompt: $input"
-            }
-            "text_summarization" -> {
-                "Summarize the following text in a concise and clear manner:\n\n$input"
-            }
-            "grammar_check" -> {
-                "Check the following text for grammar, spelling, and punctuation errors. Provide the corrected version:\n\n$input"
-            }
             "translation" -> {
                 val parts = input.split("|")
-                if (parts.size == 3) {
-                    val text = parts[0]
-                    val fromLang = parts[1]
-                    val toLang = parts[2]
-                    "Translate the following text from $fromLang to $toLang:\n\n$text"
-                } else {
-                    "Translate this text: $input"
-                }
+                val text = parts.getOrNull(0) ?: input
+                val from = parts.getOrNull(1) ?: "English"
+                val to = parts.getOrNull(2) ?: "Spanish"
+                "Translate the following text from $from to $to: $text"
             }
-            "code_assistant" -> {
-                "Generate clean, well-commented code for: $input\n\nProvide complete, working code with explanations."
-            }
-            "code_review" -> {
-                "Review the following code and suggest improvements, bug fixes, and best practices:\n\n$input"
-            }
-            "image_generation" -> {
-                "Create a detailed description for an AI image generator based on: $input\n\nInclude visual details, style, mood, and composition."
-            }
-            "creative_writing" -> {
-                "Write creative content (story, poem, or article) based on: $input\n\nBe imaginative and engaging."
-            }
-            "document_analyzer" -> {
-                "Analyze the following document and provide key insights, main points, and important information:\n\n$input"
-            }
-            "data_analysis" -> {
-                "Analyze the following data and provide insights, patterns, and conclusions:\n\n$input"
-            }
-            "text_to_speech" -> {
-                "Convert the following text to speech-ready format with proper pronunciation guides:\n\n$input"
-            }
-            "speech_to_text" -> {
-                "Transcribe and format the following audio content:\n\n$input"
-            }
-            "vision_tools" -> {
-                "Analyze this image description and provide detailed insights:\n\n$input"
-            }
-            "audio_enhancer" -> {
-                "Provide audio enhancement instructions for:\n\n$input"
-            }
-            "video_analysis" -> {
-                "Analyze the following video description:\n\n$input"
-            }
+            "text_summarization" -> "Summarize the following text: $input"
+            "grammar_check" -> "Check and correct the grammar in the following text: $input"
+            "code_assistant" -> "Generate code for: $input"
+            "code_review" -> "Review the following code and provide suggestions: $input"
+            "image_generation" -> "Generate an image description for: $input"
+            "creative_writing" -> "Write creative content about: $input"
             else -> input
         }
     }
 }
 
 data class AIToolUiState(
-    val isLoading: Boolean = false,
     val result: String = "",
+    val isLoading: Boolean = false,
     val error: String? = null
 )
+

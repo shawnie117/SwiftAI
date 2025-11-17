@@ -26,7 +26,7 @@ class FirestoreService @Inject constructor() {
 
     suspend fun createUser(user: User): Result<Unit> {
         return try {
-            usersCollection.document(user.id).set(user).await()
+            usersCollection.document(user.uid).set(user).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("FirestoreService", "Error creating user: ${e.message}")
@@ -47,7 +47,7 @@ class FirestoreService @Inject constructor() {
 
     suspend fun updateUser(user: User): Result<Unit> {
         return try {
-            usersCollection.document(user.id).set(user).await()
+            usersCollection.document(user.uid).set(user).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("FirestoreService", "Error updating user: ${e.message}")

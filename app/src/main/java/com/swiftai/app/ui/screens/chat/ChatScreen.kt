@@ -5,382 +5,265 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.swiftai.app.domain.model.AIModels
-import com.swiftai.app.ui.components.InputBar
-import com.swiftai.app.ui.components.MessageBubble
-import com.swiftai.app.ui.components.TypingIndicator
-import com.swiftai.app.ui.theme.*
+import com.swiftai.app.domain.model.Message
 import kotlinx.coroutines.launch
+
+// Color definitions — update to match your theme
+private val UserBubble = Color(0xFF1976D2)
+private val AIBubble = Color(0xFF262D34)
+private val Background = Color(0xFF17191D)
+private val SurfaceDark = Color(0xFF1B1E23)
+private val SurfaceVariantDark = Color(0xFF23272B)
+private val Purple = Color(0xFF8249FF)
+private val Cyan = Color(0xFF09DAC6)
+private val Amber = Color(0xFFFFB300)
+private val TextPrimary = Color.White
+private val TextSecondary = Color(0xFFBFC1C6)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    navController: NavController,
     chatId: String,
+    navController: NavController,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    val keyboardController = LocalSoftwareKeyboardController.current
-    var showModelSelector by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(chatId) {
-        viewModel.loadChat(chatId)
-    }
-
-    // Auto-scroll to bottom when new message arrives or keyboard opens
-    LaunchedEffect(uiState.messages.size, uiState.isSending) {
+    LaunchedEffect(chatId) { viewModel.loadChat(chatId) }
+    LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
-            coroutineScope.launch {
-                listState.animateScrollToItem(
-                    index = maxOf(0, uiState.messages.size - 1)
-                )
-            }
+            scope.launch { listState.animateScrollToItem(uiState.messages.size - 1) }
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
+                title = { Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Purple, Cyan))),
+                        contentAlignment = Alignment.Center
+                    ) { Text("⚡", fontWeight = FontWeight.Bold) }
+
                     Column {
+                        Text("SwiftAI", fontWeight = FontWeight.Bold)
                         Text(
-                            text = uiState.chatTitle,
-                            fontWeight = FontWeight.Bold
-                        )
-                        val currentModel = AIModels.models.find { it.id == uiState.selectedModel }
-                        Text(
-                            text = "${currentModel?.icon} ${currentModel?.name}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            if (uiState.isLoading) "Thinking..." else "Online",
+                            fontWeight = FontWeight.Normal,
+                            color = if (uiState.isLoading) Amber else Cyan
                         )
                     }
-                },
+                }},
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = TextPrimary)
                     }
                 },
                 actions = {
-                    // Model Selector Button
-                    TextButton(
-                        onClick = {
-                            keyboardController?.hide()
-                            showModelSelector = true
-                        },
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = Purple.copy(alpha = 0.1f)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        val currentModel = AIModels.models.find { it.id == uiState.selectedModel }
-                        Text(
-                            text = currentModel?.icon ?: "⚡",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.ExpandMore,
-                            contentDescription = "Select Model",
-                            modifier = Modifier.size(16.dp),
-                            tint = Purple
-                        )
+                    IconButton(onClick = { /*TODO: Share*/ }) {
+                        Icon(Icons.Default.Share, "Share", tint = TextPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceDark
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
             )
         },
-        containerColor = BackgroundDark,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)  // Important: Remove default insets
+        containerColor = Background
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .imePadding()  // This handles keyboard padding
+                .imePadding()
         ) {
-            // Messages List - Takes remaining space
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                if (uiState.messages.isEmpty() && !uiState.isLoading) {
-                    // Empty state
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "👋",
-                            style = MaterialTheme.typography.displayMedium
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "How can I help you today?",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Ask me anything!",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = TextSecondary
-                        )
-                    }
+            Box(modifier = Modifier.weight(1f)) {
+                if (uiState.messages.isEmpty()) {
+                    EmptyChatState()
                 } else {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        reverseLayout = false
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(
-                            items = uiState.messages,
-                            key = { it.id }
-                        ) { message ->
-                            MessageBubble(message = message)
+                        items(uiState.messages) { message ->
+                            MessageBubble(message)
                         }
-
-                        if (uiState.isSending) {
-                            item(key = "typing") {
-                                TypingIndicator()
-                            }
-                        }
-
-                        // Extra space at bottom for better UX
-                        item(key = "spacer") {
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                        if (uiState.isLoading) item { TypingIndicator() }
+                        item { Spacer(Modifier.height(80.dp)) }
                     }
                 }
             }
-
-            // Input Bar - Always visible at bottom, above keyboard
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = SurfaceDark,
-                shadowElevation = 8.dp,
-                tonalElevation = 8.dp
-            ) {
-                Column {
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = TextSecondary.copy(alpha = 0.1f)
-                    )
-                    InputBar(
-                        value = uiState.inputMessage,
-                        onValueChange = viewModel::onMessageChange,
-                        onSend = {
-                            viewModel.sendMessage()
-                            // Scroll to bottom after sending
-                            coroutineScope.launch {
-                                kotlinx.coroutines.delay(100)
-                                if (uiState.messages.isNotEmpty()) {
-                                    listState.animateScrollToItem(uiState.messages.size)
-                                }
-                            }
-                        },
-                        enabled = !uiState.isSending,
-                        placeholder = "Type a message...",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+            MessageInput(
+                value = uiState.inputText,
+                onValueChange = { viewModel.updateInputText(it) },
+                onSend = {
+                    viewModel.sendMessage()
+                },
+                enabled = !uiState.isLoading
+            )
         }
     }
+}
 
-    // Model Selector Bottom Sheet
-    if (showModelSelector) {
-        ModalBottomSheet(
-            onDismissRequest = { showModelSelector = false },
-            containerColor = SurfaceDark,
-            dragHandle = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        modifier = Modifier
-                            .width(40.dp)
-                            .height(4.dp),
-                        color = TextSecondary.copy(alpha = 0.4f),
-                        shape = RoundedCornerShape(2.dp)
-                    ) {}
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-            }
-        ) {
-            Column(
+@Composable
+fun MessageBubble(message: Message) {
+    val isUser = message.role == "user"
+
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isUser) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Purple.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) { Text("⚡") }
+            Spacer(Modifier.width(8.dp))
+        }
+        Surface(
+            modifier = Modifier.widthIn(max = 280.dp),
+            shape = RoundedCornerShape(
+                topStart = 16.dp, topEnd = 16.dp,
+                bottomStart = if (isUser) 16.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 16.dp
+            ),
+            color = if (isUser) UserBubble else AIBubble
+        ) {
+            Text(
+                text = message.content,
+                color = TextPrimary,
+                modifier = Modifier.padding(14.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun TypingIndicator() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(Purple.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("⚡")
+        }
+        Spacer(Modifier.width(8.dp))
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceVariantDark
+        ) {
+            Row(
+                Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    text = "Select AI Model",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Choose the AI model that best fits your needs",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                AIModels.models.forEach { model ->
-                    ModelCard(
-                        model = model,
-                        isSelected = model.id == uiState.selectedModel,
-                        onClick = {
-                            viewModel.onModelChange(model.id)
-                            showModelSelector = false
-                        }
+                repeat(3) {
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(TextSecondary)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
 @Composable
-fun ModelCard(
-    model: com.swiftai.app.domain.model.AIModel,
-    isSelected: Boolean,
-    onClick: () -> Unit
+fun EmptyChatState() {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("👋", style = MaterialTheme.typography.displayLarge)
+        Spacer(Modifier.height(16.dp))
+        Text("Hi! I'm SwiftAI", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text("Ask me anything!", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MessageInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSend: () -> Unit,
+    enabled: Boolean
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Purple.copy(alpha = 0.15f) else SurfaceVariantDark
-        ),
-        border = if (isSelected) CardDefaults.outlinedCardBorder().copy(
-            width = 2.dp,
-            brush = androidx.compose.ui.graphics.SolidColor(Purple)
-        ) else null
+    Surface(
+        Modifier.fillMaxWidth(),
+        color = SurfaceDark,
+        shadowElevation = 8.dp
     ) {
         Row(
-            modifier = Modifier
+            Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
+                placeholder = { Text("Message SwiftAI...", color = TextSecondary) },
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.weight(1f),
+                enabled = enabled,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = SurfaceVariantDark,
+                    unfocusedContainerColor = SurfaceVariantDark,
+                    disabledContainerColor = SurfaceVariantDark,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                ),
+                maxLines = 4
+            )
+            FloatingActionButton(
+                onClick = onSend,
+                containerColor = Purple,
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 2.dp)
             ) {
-                // Icon
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (model.isPremium) Amber.copy(alpha = 0.2f) else Purple.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = model.icon,
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                }
-
-                // Info
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = model.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-
-                        if (model.isPremium) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Amber
-                            ) {
-                                Text(
-                                    text = "PRO",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = model.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                }
-            }
-
-            // Checkmark
-            if (isSelected) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Purple,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Text(
-                            text = "✓",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = TextPrimary)
             }
         }
     }

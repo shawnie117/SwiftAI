@@ -1,4 +1,4 @@
-package com.swiftai.app.ui.screens.settings
+package com.swiftai.app.ui.screens.subscription
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,39 +11,44 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(
+class SubscriptionViewModel @Inject constructor(
     private val userRepository: UserRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(SubscriptionUiState())
     val uiState = _uiState.asStateFlow()
 
     private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     init {
-        loadUserData()
-        // Enable debug mode for you (or check some condition)
-        _uiState.value = _uiState.value.copy(isDebugMode = true)
+        loadCurrentTier()
     }
 
-    private fun loadUserData() {
+    private fun loadCurrentTier() {
         viewModelScope.launch {
             userRepository.getUserFlow(currentUserId).collect { user ->
                 _uiState.value = _uiState.value.copy(
-                    userTier = user?.subscriptionTier ?: "free"
+                    currentTier = user?.subscriptionTier ?: "free"
                 )
             }
         }
     }
 
-    fun setUserTier(tier: String) {
+    fun subscribeTo(tier: String) {
+        // TODO: Implement Razorpay/Stripe payment here
+        // For now, just show that it's called
         viewModelScope.launch {
-            userRepository.updateSubscriptionTier(currentUserId, tier)
+            _uiState.value = _uiState.value.copy(
+                isProcessingPayment = true
+            )
+
+            // After payment success, update tier
+            // userRepository.updateSubscriptionTier(currentUserId, tier)
         }
     }
 }
 
-data class SettingsUiState(
-    val userTier: String = "free",
-    val isDebugMode: Boolean = false
+data class SubscriptionUiState(
+    val currentTier: String = "free",
+    val isProcessingPayment: Boolean = false
 )

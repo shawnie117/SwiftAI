@@ -5,178 +5,145 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.swiftai.app.data.repository.ChatRepository
-import com.swiftai.app.domain.model.AIModels
 import com.swiftai.app.domain.model.Chat
 import com.swiftai.app.domain.model.Message
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val repository: ChatRepository,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
-    val uiState = _uiState.asStateFlow()
+    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    private var currentChatId = ""
-    private var currentChat: Chat? = null
+    private val currentUserId: String
+        get() = auth.currentUser?.uid ?: ""
 
-    fun loadChat(chatId: String) {
-        currentChatId = chatId
-
-        viewModelScope.launch {
-            try {
-                // Load messages
-                chatRepository.getMessagesFlow(chatId)
-                    .catch { e ->
-                        Log.e("ChatViewModel", "Error loading messages: ${e.message}")
-                        emit(emptyList())
-                    }
-                    .collect { messages ->
-                        _uiState.value = _uiState.value.copy(
-                            messages = messages,
-                            isLoading = false
-                        )
-                    }
-            } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error in loadChat messages: ${e.message}")
-                _uiState.value = _uiState.value.copy(
-                    messages = emptyList(),
-                    isLoading = false
-                )
-            }
-        }
-
-        // Load chat details
-        viewModelScope.launch {
-            try {
-                chatRepository.getChatsFlow(currentUserId)
-                    .catch { e ->
-                        Log.e("ChatViewModel", "Error loading chat details: ${e.message}")
-                        emit(emptyList())
-                    }
-                    .collect { chats ->
-                        currentChat = chats.find { it.id == chatId }
-                        currentChat?.let { chat ->
-                            _uiState.value = _uiState.value.copy(
-                                chatTitle = chat.title,
-                                selectedModel = chat.model
-                            )
-                        }
-                    }
-            } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error loading chat details: ${e.message}")
-            }
-        }
+    init {
+        loadChats()
     }
 
-    fun onMessageChange(message: String) {
-        _uiState.value = _uiState.value.copy(inputMessage = message)
-    }
-
-    fun onModelChange(model: String) {
-        _uiState.value = _uiState.value.copy(selectedModel = model)
-
-        // Update chat model in Firestore
-        currentChat?.let { chat ->
-            viewModelScope.launch {
-                try {
-                    chatRepository.updateChat(chat.copy(model = model))
-                    Log.d("ChatViewModel", "Model changed to: $model")
-                } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Error updating model: ${e.message}")
+    private fun loadChats() {
+        viewModelScope.launch {
+            repository.getChatsFlow(currentUserId)
+                .catch { e ->
+                    Log.e("ChatViewModel", "Error loading chats", e)
+                    _uiState.update { it.copy(error = e.message) }
                 }
-            }
+                .collect { chats ->
+                    _uiState.update { it.copy(chats = chats, error = null) }
+                }
         }
+    }
+
+    fun loadMessages(chatId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(currentChatId = chatId, isLoading = true) }
+            repository.getMessagesFlow(chatId)
+                .catch { e ->
+                    Log.e("ChatViewModel", "Error loading messages", e)
+                    _uiState.update { it.copy(error = e.message, isLoading = false) }
+                }
+                .collect { messages ->
+                    _uiState.update { it.copy(messages = messages, isLoading = false, error = null) }
+                }
+        }
+    }
+
+    // Alias for compatibility with ChatScreen
+    fun loadChat(chatId: String) = loadMessages(chatId)
+
+    fun updateInputText(text: String) {
+        _uiState.update { it.copy(inputText = text) }
     }
 
     fun sendMessage() {
-        val messageText = _uiState.value.inputMessage.trim()
-        if (messageText.isEmpty() || _uiState.value.isSending) return
+        val content = _uiState.value.inputText.trim()
+        if (content.isEmpty()) return
 
-        _uiState.value = _uiState.value.copy(
-            inputMessage = "",
-            isSending = true
-        )
+        // Clear input immediately
+        _uiState.update { it.copy(inputText = "", isLoading = true) }
+
+        sendMessage(content)
+    }
+
+    fun sendMessage(content: String) {
+        val chatId = _uiState.value.currentChatId
+        if (chatId.isBlank() || content.isBlank()) return
 
         viewModelScope.launch {
-            try {
-                // Create user message
-                val userMessage = Message(
-                    id = UUID.randomUUID().toString(),
-                    chatId = currentChatId,
-                    content = messageText,
-                    role = "user",
-                    timestamp = System.currentTimeMillis()
-                )
+            _uiState.update { it.copy(isLoading = true) }
 
-                // Save user message
-                chatRepository.sendMessage(userMessage)
+            Log.d("ChatViewModel", "Sending message: $content")
 
-                // Generate chat title if this is the first message
-                if (_uiState.value.messages.isEmpty()) {
-                    val title = chatRepository.generateChatTitle(messageText)
-                    currentChat?.let { chat ->
-                        chatRepository.updateChat(chat.copy(title = title))
+            val message = Message(
+                id = UUID.randomUUID().toString(),
+                chatId = chatId,
+                content = content,
+                isUser = true,
+                timestamp = System.currentTimeMillis()
+            )
+
+            val result = repository.sendMessage(message)
+
+            when {
+                result.isSuccess -> {
+                    Log.d("ChatViewModel", "Message sent successfully")
+                    _uiState.update { it.copy(isLoading = false, error = null) }
+                }
+                else -> {
+                    val error = result.exceptionOrNull()
+                    Log.e("ChatViewModel", "Error sending message: ${error?.message}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = error?.message ?: "Failed to send message"
+                        )
                     }
                 }
-
-                // Get maxLength based on selected model (FIXED)
-                val selectedModelData = AIModels.getModelById(_uiState.value.selectedModel)
-                val maxLength = selectedModelData?.maxLength ?: 100
-
-                Log.d("ChatViewModel", "Sending with model: ${_uiState.value.selectedModel}, maxLength: $maxLength")
-
-                // Call API with correct model
-                val aiResponseResult = chatRepository.getAIResponse(
-                    prompt = messageText,
-                    model = _uiState.value.selectedModel, // Use selected model
-                    maxLength = maxLength
-                )
-
-                val aiMessage = if (aiResponseResult.isSuccess) {
-                    Message(
-                        id = UUID.randomUUID().toString(),
-                        chatId = currentChatId,
-                        content = aiResponseResult.getOrNull() ?: "Sorry, I couldn't generate a response.",
-                        role = "assistant",
-                        timestamp = System.currentTimeMillis()
-                    )
-                } else {
-                    Message(
-                        id = UUID.randomUUID().toString(),
-                        chatId = currentChatId,
-                        content = aiResponseResult.exceptionOrNull()?.message ?: "Error: Could not connect to AI service",
-                        role = "assistant",
-                        timestamp = System.currentTimeMillis(),
-                        isError = true
-                    )
-                }
-
-                // Save AI message
-                chatRepository.sendMessage(aiMessage)
-
-                _uiState.value = _uiState.value.copy(isSending = false)
-            } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error sending message: ${e.message}")
-                _uiState.value = _uiState.value.copy(isSending = false)
             }
         }
+    }
+
+    fun createNewChat() {
+        viewModelScope.launch {
+            val newChat = Chat(
+                id = UUID.randomUUID().toString(),
+                userId = currentUserId,
+                title = "New Chat",
+                lastMessageTime = System.currentTimeMillis()
+            )
+            repository.createChat(newChat)
+            _uiState.update { it.copy(currentChatId = newChat.id) }
+            loadMessages(newChat.id)
+        }
+    }
+
+    fun deleteChat(chatId: String) {
+        viewModelScope.launch {
+            repository.deleteChat(chatId)
+            if (_uiState.value.currentChatId == chatId) {
+                _uiState.update { it.copy(currentChatId = "", messages = emptyList()) }
+            }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }
 
 data class ChatUiState(
+    val chats: List<Chat> = emptyList(),
     val messages: List<Message> = emptyList(),
-    val inputMessage: String = "",
-    val chatTitle: String = "New Chat",
-    val selectedModel: String = "swiftai-mini",
-    val isLoading: Boolean = true,
-    val isSending: Boolean = false
+    val currentChatId: String = "",
+    val inputText: String = "",
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

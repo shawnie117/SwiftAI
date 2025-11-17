@@ -1,12 +1,16 @@
 package com.swiftai.app.ui.screens.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,12 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 import com.swiftai.app.ui.navigation.Screen
 import com.swiftai.app.ui.theme.*
 
@@ -30,19 +34,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showLogoutDialog by remember { mutableStateOf(false) }
-    var showEditNameDialog by remember { mutableStateOf(false) }
-    var showClearChatsDialog by remember { mutableStateOf(false) }
-    var showThemeDialog by remember { mutableStateOf(false) }
-    var editedName by remember { mutableStateOf("") }
-
-    LaunchedEffect(uiState.isSignedOut) {
-        if (uiState.isSignedOut) {
-            navController.navigate(Screen.Login.route) {
-                popUpTo(0) { inclusive = true }
-            }
-        }
-    }
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
     Scaffold(
         topBar = {
@@ -56,7 +48,7 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -73,229 +65,277 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Profile Section
+            // Profile Card
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = SurfaceVariantDark
                 )
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Avatar
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(64.dp)
                             .clip(CircleShape)
                             .background(
                                 brush = Brush.linearGradient(
-                                    colors = listOf(GradientStart, GradientMiddle)
+                                    colors = listOf(Purple, Cyan)
                                 )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = uiState.displayName.firstOrNull()?.uppercase() ?: "U",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = Color.White,
+                            text = currentUser?.displayName?.firstOrNull()?.uppercase() ?: "U",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = uiState.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = uiState.email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Subscription Badge
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (uiState.subscriptionType == "premium") Amber else Purple.copy(alpha = 0.3f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = currentUser?.displayName ?: "User",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = currentUser?.email ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = when(uiState.userTier) {
+                                "pro" -> Purple.copy(alpha = 0.2f)
+                                "max" -> Amber.copy(alpha = 0.2f)
+                                else -> TextSecondary.copy(alpha = 0.1f)
+                            }
                         ) {
                             Text(
-                                text = if (uiState.subscriptionType == "premium") "👑" else "⚡"
-                            )
-                            Text(
-                                text = if (uiState.subscriptionType == "premium") "PREMIUM" else "FREE PLAN",
-                                style = MaterialTheme.typography.labelLarge,
+                                text = when(uiState.userTier) {
+                                    "pro" -> "⚡ PRO"
+                                    "max" -> "👑 MAX"
+                                    else -> "FREE"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (uiState.subscriptionType == "premium") Color.Black else TextPrimary
+                                color = when(uiState.userTier) {
+                                    "pro" -> Purple
+                                    "max" -> Amber
+                                    else -> TextSecondary
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Account Settings
+            // Subscription Section
             Text(
-                text = "Account",
+                text = "Subscription",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
 
             SettingsItem(
                 icon = Icons.Default.Star,
-                title = "Upgrade to Premium",
-                subtitle = "Unlock all AI models",
-                onClick = { navController.navigate(Screen.Subscription.route) },
-                badge = "PRO"
+                title = "Upgrade Plan",
+                subtitle = "Unlock AI Tools & Premium Features",
+                onClick = {
+                    navController.navigate(Screen.Subscription.route)
+                },
+                showBadge = uiState.userTier == "free"
             )
 
+            // App Settings Section
+            Text(
+                text = "App Settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp)
+            )
+
+            SettingsItem(
+                icon = Icons.Default.Notifications,
+                title = "Notifications",
+                subtitle = "Manage notification preferences",
+                onClick = { /* TODO */ }
+            )
 
             SettingsItem(
                 icon = Icons.Default.Lock,
-                title = "Change Password",
-                subtitle = "Update your password",
-                onClick = { /* TODO: Implement password change */ }
-            )
-
-            SettingsItem(
-                icon = Icons.Default.Star,
-                title = "Upgrade to Premium",
-                subtitle = "Unlock all AI models",
-                onClick = { /* TODO: Implement upgrade */ },
-                badge = "PRO"
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Preferences
-            Text(
-                text = "Preferences",
-                style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-            )
-
-            SettingsItem(
-                icon = Icons.Default.Palette,
-                title = "Theme",
-                subtitle = if (uiState.isDarkTheme) "Dark mode" else "Light mode",
-                onClick = { showThemeDialog = true }
+                title = "Privacy & Security",
+                subtitle = "Data and account security",
+                onClick = { /* TODO */ }
             )
 
             SettingsItem(
                 icon = Icons.Default.Language,
                 title = "Language",
-                subtitle = "English (US)",
-                onClick = { /* TODO: Implement language selector */ }
+                subtitle = "English",
+                onClick = { /* TODO */ }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Data & Privacy
+            // Support Section
             Text(
-                text = "Data & Privacy",
+                text = "Support",
                 style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp)
             )
 
             SettingsItem(
-                icon = Icons.Default.Download,
-                title = "Export Chat History",
-                subtitle = "Download all your conversations",
-                onClick = { viewModel.exportChatHistory() }
-            )
-
-            SettingsItem(
-                icon = Icons.Default.Delete,
-                title = "Clear All Chats",
-                subtitle = "Delete all conversation history",
-                onClick = { showClearChatsDialog = true }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // About
-            Text(
-                text = "About",
-                style = MaterialTheme.typography.titleMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-            )
-
-            SettingsItem(
-                icon = Icons.Default.Info,
-                title = "Privacy Policy",
-                subtitle = "Read our privacy policy",
-                onClick = { /* TODO: Open privacy policy */ }
+                icon = Icons.AutoMirrored.Filled.Help,
+                title = "Help & FAQ",
+                subtitle = "Get help and support",
+                onClick = { /* TODO */ }
             )
 
             SettingsItem(
                 icon = Icons.Default.Description,
                 title = "Terms of Service",
                 subtitle = "Read our terms",
-                onClick = { /* TODO: Open terms */ }
+                onClick = { /* TODO */ }
             )
 
             SettingsItem(
-                icon = Icons.Default.Help,
-                title = "Help & Support",
-                subtitle = "Get help or report issues",
-                onClick = { /* TODO: Open support */ }
+                icon = Icons.Default.PrivacyTip,
+                title = "Privacy Policy",
+                subtitle = "Your privacy matters",
+                onClick = { /* TODO */ }
+            )
+
+            // About Section
+            Text(
+                text = "About",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp)
             )
 
             SettingsItem(
                 icon = Icons.Default.Info,
                 title = "App Version",
                 subtitle = "1.0.0",
-                onClick = { }
+                onClick = {}
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Debug Section (Hidden from users, only for you)
+            if (uiState.isDebugMode) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                Text(
+                    text = "🔧 Debug Tools",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Amber,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Amber.copy(alpha = 0.1f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Manual Tier Upgrade",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.setUserTier("free") },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Free")
+                            }
+                            OutlinedButton(
+                                onClick = { viewModel.setUserTier("pro") },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Purple
+                                )
+                            ) {
+                                Text("Pro")
+                            }
+                            OutlinedButton(
+                                onClick = { viewModel.setUserTier("max") },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Amber
+                                )
+                            ) {
+                                Text("Max")
+                            }
+                        }
+
+                        Text(
+                            text = "Current: ${uiState.userTier.uppercase()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Logout Button
             Button(
-                onClick = { showLogoutDialog = true },
+                onClick = {
+                    FirebaseAuth.getInstance().signOut()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                    containerColor = Red.copy(alpha = 0.2f),
+                    contentColor = Red
                 ),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Logout,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Sign Out",
-                    color = MaterialTheme.colorScheme.error,
+                    text = "Logout",
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -303,159 +343,20 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-
-    // Edit Name Dialog
-    if (showEditNameDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditNameDialog = false },
-            title = { Text("Edit Profile Name") },
-            text = {
-                OutlinedTextField(
-                    value = editedName,
-                    onValueChange = { editedName = it },
-                    label = { Text("Full Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.updateDisplayName(editedName)
-                        showEditNameDialog = false
-                    },
-                    enabled = editedName.isNotBlank()
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditNameDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Logout Confirmation Dialog
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Logout,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
-                )
-            },
-            title = { Text("Sign Out") },
-            text = { Text("Are you sure you want to sign out?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        viewModel.signOut()
-                    }
-                ) {
-                    Text("Sign Out", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Clear Chats Dialog
-    if (showClearChatsDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearChatsDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
-                )
-            },
-            title = { Text("Clear All Chats") },
-            text = { Text("This will permanently delete all your conversations. This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearAllChats()
-                        showClearChatsDialog = false
-                    }
-                ) {
-                    Text("Delete All", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearChatsDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // Theme Dialog
-    if (showThemeDialog) {
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            title = { Text("Choose Theme") },
-            text = {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = uiState.isDarkTheme,
-                            onClick = { viewModel.setTheme(true) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Dark Mode")
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = !uiState.isDarkTheme,
-                            onClick = { viewModel.setTheme(false) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Light Mode")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Done")
-                }
-            }
-        )
-    }
 }
 
 @Composable
 fun SettingsItem(
     icon: ImageVector,
     title: String,
-    subtitle: String? = null,
+    subtitle: String,
     onClick: () -> Unit,
-    badge: String? = null
+    showBadge: Boolean = false
 ) {
     Card(
-        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = SurfaceVariantDark
@@ -465,13 +366,15 @@ fun SettingsItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.weight(1f)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Purple.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
@@ -479,53 +382,43 @@ fun SettingsItem(
                     tint = Purple,
                     modifier = Modifier.size(24.dp)
                 )
+            }
 
-                Column(
-                    modifier = Modifier.weight(1f)
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = TextPrimary
                     )
-                    if (subtitle != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
+                    if (showBadge) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Amber
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                            )
+                        }
                     }
                 }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (badge != null) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Amber
-                    ) {
-                        Text(
-                            text = badge,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
                 )
             }
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = TextSecondary
+            )
         }
     }
 }
