@@ -43,15 +43,31 @@ class ChatViewModel @Inject constructor(
     }
 
     fun loadMessages(chatId: String) {
+        // Don't reload if already listening to this chat
+        if (_uiState.value.currentChatId == chatId && _uiState.value.messages.isNotEmpty()) {
+            Log.d("ChatViewModel", "Already listening to chat $chatId with ${_uiState.value.messages.size} messages")
+            return
+        }
+
         viewModelScope.launch {
+            Log.d("ChatViewModel", "Loading messages for chat: $chatId")
             _uiState.update { it.copy(currentChatId = chatId, isLoading = true) }
             repository.getMessagesFlow(chatId)
+                .distinctUntilChanged() // Prevent duplicate emissions
                 .catch { e ->
                     Log.e("ChatViewModel", "Error loading messages", e)
                     _uiState.update { it.copy(error = e.message, isLoading = false) }
                 }
                 .collect { messages ->
-                    _uiState.update { it.copy(messages = messages, isLoading = false, error = null) }
+                    Log.d("ChatViewModel", "Received ${messages.size} messages from Firestore")
+                    _uiState.update {
+                        it.copy(
+                            messages = messages,
+                            isLoading = false,
+                            isThinking = false,
+                            error = null
+                        )
+                    }
                 }
         }
     }
@@ -67,57 +83,72 @@ class ChatViewModel @Inject constructor(
         val content = _uiState.value.inputText.trim()
         if (content.isEmpty()) return
 
-        // Clear input immediately
-        _uiState.update { it.copy(inputText = "", isLoading = true) }
+        // Clear input and show thinking
+        _uiState.update { it.copy(inputText = "", isThinking = true) }
 
-        sendMessage(content)
-    }
-
-    fun sendMessage(content: String) {
-        val chatId = _uiState.value.currentChatId
-        if (chatId.isBlank() || content.isBlank()) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
-            Log.d("ChatViewModel", "Sending message: $content")
-
-            val message = Message(
-                id = UUID.randomUUID().toString(),
-                chatId = chatId,
-                content = content,
-                isUser = true,
-                timestamp = System.currentTimeMillis()
+        // Ensure we have a chat
+        var chatId = _uiState.value.currentChatId
+        if (chatId.isBlank()) {
+            chatId = UUID.randomUUID().toString()
+            val currentTime = System.currentTimeMillis()
+            val newChat = Chat(
+                id = chatId,
+                userId = currentUserId,
+                title = "New Chat",
+                createdAt = currentTime,
+                updatedAt = currentTime,
+                lastMessageTime = currentTime,
+                model = "gemini-pro",
+                messageCount = 0
             )
+            viewModelScope.launch {
+                repository.createChat(newChat)
+                // Start listening to messages for this new chat
+                loadMessages(chatId)
+            }
+            _uiState.update { it.copy(currentChatId = chatId) }
+        }
 
-            val result = repository.sendMessage(message)
+        // Create user message
+        val userMessage = Message(
+            id = UUID.randomUUID().toString(),
+            chatId = chatId,
+            content = content,
+            isUser = true,
+            timestamp = System.currentTimeMillis()
+        )
 
-            when {
-                result.isSuccess -> {
-                    Log.d("ChatViewModel", "Message sent successfully")
-                    _uiState.update { it.copy(isLoading = false, error = null) }
-                }
-                else -> {
-                    val error = result.exceptionOrNull()
-                    Log.e("ChatViewModel", "Error sending message: ${error?.message}")
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = error?.message ?: "Failed to send message"
-                        )
-                    }
-                }
+        Log.d("ChatViewModel", "Sending message: $content to chat: $chatId")
+
+        // Send message - Firestore listener will update UI automatically
+        viewModelScope.launch {
+            val result = repository.sendMessage(userMessage)
+
+            // Stop thinking indicator when done (success or failure)
+            _uiState.update { it.copy(isThinking = false) }
+
+            if (result.isFailure) {
+                val errorText = result.exceptionOrNull()?.message ?: "Failed to send message"
+                Log.e("ChatViewModel", "Error sending message: $errorText")
+                _uiState.update { it.copy(error = errorText) }
+            } else {
+                Log.d("ChatViewModel", "Message sent successfully")
             }
         }
     }
 
     fun createNewChat() {
         viewModelScope.launch {
+            val currentTime = System.currentTimeMillis()
             val newChat = Chat(
                 id = UUID.randomUUID().toString(),
                 userId = currentUserId,
                 title = "New Chat",
-                lastMessageTime = System.currentTimeMillis()
+                createdAt = currentTime,
+                updatedAt = currentTime,
+                lastMessageTime = currentTime,
+                model = "gemini-pro",
+                messageCount = 0
             )
             repository.createChat(newChat)
             _uiState.update { it.copy(currentChatId = newChat.id) }
@@ -144,6 +175,7 @@ data class ChatUiState(
     val messages: List<Message> = emptyList(),
     val currentChatId: String = "",
     val inputText: String = "",
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = false, // retains purpose for initial loads
+    val isThinking: Boolean = false, // NEW flag for AI thinking/typing indicator
     val error: String? = null
 )

@@ -42,15 +42,17 @@ class SwiftAIApi @Inject constructor() {
      * @param prompt The user's message/prompt
      * @param model The AI model to use (swiftai-mini, swiftai-standard, swiftai-pro, swiftai-max)
      * @param maxLength Maximum length of the response
+     * @param chatId The chat session ID (null for new chat)
      * @return Result containing ChatResponse or error
      */
     suspend fun sendMessage(
         prompt: String,
         model: String = "swiftai-mini",
-        maxLength: Int = 100
+        maxLength: Int = 100,
+        chatId: String? = null
     ): Result<ChatResponse> = withContext(Dispatchers.IO) {
         try {
-            Log.d("SwiftAIApi", "Sending message - Model: $model, MaxLength: $maxLength")
+            Log.d("SwiftAIApi", "Sending message - Model: $model, MaxLength: $maxLength, ChatId: $chatId")
 
             // Get the appropriate base URL for the model
             val baseUrl = modelUrls[model] ?: defaultBaseUrl
@@ -59,7 +61,8 @@ class SwiftAIApi @Inject constructor() {
             val chatRequest = ChatRequest(
                 prompt = prompt,
                 model = model,
-                max_length = maxLength
+                max_length = maxLength,
+                chat_id = chatId
             )
 
             val jsonBody = gson.toJson(chatRequest)
@@ -96,6 +99,39 @@ class SwiftAIApi @Inject constructor() {
             }
         } catch (e: Exception) {
             Log.e("SwiftAIApi", "Exception in sendMessage: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get chat history for a specific chat session
+     * @param chatId The chat session ID
+     * @return Result containing list of messages or error
+     */
+    suspend fun getHistory(chatId: String): Result<List<ChatResponse>> = withContext(Dispatchers.IO) {
+        try {
+            val baseUrl = defaultBaseUrl
+            val request = Request.Builder()
+                .url("$baseUrl/api/chat/history/$chatId")
+                .get()
+                .addHeader("Accept", "application/json")
+                .build()
+
+            val response = client.newCall(request).execute()
+
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                if (responseBody != null) {
+                    val history = gson.fromJson(responseBody, Array<ChatResponse>::class.java).toList()
+                    Result.success(history)
+                } else {
+                    Result.failure(Exception("Empty response"))
+                }
+            } else {
+                Result.failure(Exception("Failed to fetch history"))
+            }
+        } catch (e: Exception) {
+            Log.e("SwiftAIApi", "Error fetching history: ${e.message}")
             Result.failure(e)
         }
     }

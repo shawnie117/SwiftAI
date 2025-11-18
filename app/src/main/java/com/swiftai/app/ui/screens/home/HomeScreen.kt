@@ -1,5 +1,6 @@
 package com.swiftai.app.ui.screens.home
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,6 +32,13 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Log user ID for debugging
+    LaunchedEffect(Unit) {
+        val userId = viewModel.getUserId()
+        Log.d("HomeScreen", "User ID: $userId")
+        Log.d("HomeScreen", "Current chats count: ${uiState.chats.size}")
+    }
 
     Scaffold(
         topBar = {
@@ -94,6 +103,13 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.refresh() }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = TextPrimary
+                        )
+                    }
                     IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
@@ -126,7 +142,7 @@ fun HomeScreen(
         }
     ) { paddingValues ->
         // Show loading state
-        if (uiState.isLoading) {
+        if (uiState.isLoading && uiState.chats.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -135,17 +151,59 @@ fun HomeScreen(
             ) {
                 CircularProgressIndicator(color = Purple)
             }
-            return@Scaffold
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            // Search Bar
+            item {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = "Search chats...",
+                            color = TextSecondary
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = TextSecondary
+                        )
+                    },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = TextSecondary
+                                )
+                            }
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = SurfaceVariantDark,
+                        unfocusedContainerColor = SurfaceVariantDark,
+                        focusedBorderColor = Purple,
+                        unfocusedBorderColor = SurfaceVariantDark,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        cursorColor = Purple
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true
+                )
+            }
 
             // Browse AI Tools Card
             item {
@@ -230,7 +288,10 @@ fun HomeScreen(
                     )
                 }
 
-                items(uiState.pinnedTools) { toolId ->
+                items(
+                    items = uiState.pinnedTools,
+                    key = { toolId -> toolId }
+                ) { toolId ->
                     PinnedToolCard(
                         toolId = toolId,
                         onClick = {
@@ -271,7 +332,10 @@ fun HomeScreen(
                     EmptyState()
                 }
             } else {
-                items(uiState.chats) { chat ->
+                items(
+                    items = uiState.chats,
+                    key = { chat -> chat.id }
+                ) { chat ->
                     ChatCard(
                         chat = chat,
                         onClick = {
@@ -285,6 +349,7 @@ fun HomeScreen(
             }
 
             item { Spacer(modifier = Modifier.height(80.dp)) }
+            }
         }
     }
 }
